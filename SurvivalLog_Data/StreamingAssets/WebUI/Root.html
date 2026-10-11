@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="transparent" content="true">
+    <title>Root Orchestrator</title>
+    <style>
+        body, html {
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: transparent;
+        }
+        .page-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: transparent;
+            /* 默认不可见，由 notifyPageReady 置 visible（Sentry UNITY_SL-77Q / TXJ）：
+               每个 page-frame 都是全屏的，而 iframe 内文档没加载出来时 Chromium 画默认白底，
+               页面加载失败就等于一块盖住整个游戏画面的白板。改为 ready 前不可见后，
+               加载中/加载失败的 iframe 一律看不见，玩家最多"点了没反应"而不是白屏。
+               用 visibility 不用 display:none：后者的 iframe 不跑 rAF，而页面 ready 通知
+               （webui-core.js notifyReady）正是 rAF 发出的，且页内首帧布局测量也依赖它。 */
+            visibility: hidden;
+        }
+        #cheat-mark {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999999;
+            opacity: 0;
+            background: radial-gradient(circle at 0% 100%,
+                rgba(6, 10, 18, 0.55) 0%,
+                rgba(6, 10, 18, 0.16) 10%,
+                rgba(6, 10, 18, 0) 26%);
+        }
+        #cheat-mark.on { opacity: 1; }
+    </style>
+    <script src="vue.runtime.global.prod.js"></script>
+    <script src="es-translation.js"></script>
+<script>
+/* === [precompiled v1] === */
+(function(){var __wgArmed__=false;var __wgGaveUp__=false;var __wgReload__=function(missing){if(__wgArmed__||__wgGaveUp__)return;var m=/(?:^|;)wgr=(\d+)/.exec(window.name||"");var n=m?parseInt(m[1],10):0;if(n>=2){__wgGaveUp__=true;console.error("[WebUIGuard] "+missing+" still missing after "+n+" reloads, giving up: "+location.pathname);return;}__wgArmed__=true;window.name=(window.name||"").replace(/(?:^|;)wgr=\d+/,"")+";wgr="+(n+1);console.warn("[WebUIGuard] "+missing+" missing, reloading page ("+(n+1)+"/2): "+location.pathname);setTimeout(function(){location.reload();},300);};window.addEventListener("error",function(e){var msg=(e&&e.message)||"";var isCore=msg.indexOf("createWebUICore is not defined")>=0;if(!isCore&&msg.indexOf("Vue is not defined")<0)return;__wgReload__(isCore?"webui-core.js":"vue.runtime.global.prod.js");if(!__wgGaveUp__)e.preventDefault();});if(typeof Vue==="undefined"){__wgReload__("vue.runtime.global.prod.js");return;}document.addEventListener("DOMContentLoaded",function(){if(document.querySelector("script[src*=webui-core]")&&typeof window.createWebUICore==="undefined"){__wgReload__("webui-core.js");return;}if(!__wgArmed__&&window.name)window.name=window.name.replace(/(?:^|;)wgr=\d+/,"");});var __renderFactory__=function(Vue){const { createElementVNode: _createElementVNode, Fragment: _Fragment, openBlock: _openBlock, createElementBlock: _createElementBlock } = Vue
+
+return function render(_ctx, _cache) {
+  return (_openBlock(), _createElementBlock(_Fragment, null, [
+    _cache[0] || (_cache[0] = _createElementVNode("div", { id: "iframe-container" }, null, -1 /* CACHED */)),
+    _cache[1] || (_cache[1] = _createElementVNode("div", { id: "cheat-mark" }, null, -1 /* CACHED */))
+  ], 64 /* STABLE_FRAGMENT */))
+}};var __renderCache__=null;var __origCreateApp__=Vue.createApp;Vue.createApp=function(opts){if(!__renderCache__)__renderCache__=__renderFactory__(Vue);if(opts&&typeof opts==="object"&&!opts.render&&!opts.template){opts=Object.assign({},opts,{render:__renderCache__});}var app=__origCreateApp__.call(this,opts);if(!app.config.errorHandler){app.config.errorHandler=function(err){var msg=(err&&err.message)||String(err||"");if(msg.indexOf("createWebUICore is not defined")>=0){__wgReload__("webui-core.js");if(__wgGaveUp__)console.error(err);return;}console.error(err);};}return app;};})();
+/* === [/precompiled v1] === */
+</script>
+</head>
+<body>
+    <div id="app">
+        <div id="iframe-container"></div>
+        <div id="cheat-mark"></div>
+    </div>
+
+    <script>
+        if (typeof Vue === 'undefined') {
+            console.error('[FATAL] Vue 3未加载成功');
+        }
+
+        const { createApp, reactive, watch, nextTick } = Vue;
+
+        const app = createApp({
+            setup() {
+                const state = reactive({
+                    pages: {}
+                });
+
+                const readyPages = new Set();
+
+                const pendingReady = new Map();
+                // 单次等待基数；实际超时按 READY_TIMEOUT_MS * (已重载次数 + 1) 递增退避，
+                // 实际序列 8+16+24+32 = 80 秒后才 giving up（旧值 8+8 = 16 秒后永久白板不收口）：
+                // 3 次重载各等一轮，第 4 轮（32 秒）等满仍无 ready 才放弃。
+                // 失败诱因是低配机内存耗尽 → 换页 → 磁盘 IO 饱和 → file:// 子资源读不出来
+                // （Sentry UNITY_SL-77Q，玩家日志 sysPhysFreeMb 低到 150MB）。IO 饱和是短时的，
+                // 固定 8 秒就重载反而会取消正在进行中的加载、加剧竞争，等久一点更可能等到它缓过来。
+                // 等待期间 iframe 不可见（见 .page-frame），拉长预算不会带来任何视觉副作用。
+                const READY_TIMEOUT_MS = 8000;
+                const READY_MAX_RELOADS = 3;
+
+                const disarmReadyWatchdog = (pageId) => {
+                    const timer = pendingReady.get(pageId);
+                    if (timer !== undefined) {
+                        clearTimeout(timer);
+                        pendingReady.delete(pageId);
+                    }
+                };
+
+                const armReadyWatchdog = (pageId, reloads) => {
+                    disarmReadyWatchdog(pageId);
+                    const timer = setTimeout(() => {
+                        pendingReady.delete(pageId);
+                        const frame = document.getElementById(pageId);
+                        if (!frame || !state.pages[pageId] || readyPages.has(pageId)) return;
+                        if (reloads >= READY_MAX_RELOADS) {
+                            console.error('[WebUIGuard] page still not ready after ' + reloads + ' reloads, giving up: ' + pageId);
+                            // 通知 C#：这一页救不回来了。iframe 此时是不可见的空白页，
+                            // 不在 JS 侧自行 remove——那样 C# 侧状态还以为面板开着（Redux 未收口，
+                            // 暂停/输入锁不解除）。交由 C# 走与 ESC 同一条业务关闭路径收口。
+                            notifyPageFailed(pageId);
+                            return;
+                        }
+                        console.warn('[WebUIGuard] PAGE_READY timeout, reloading iframe (' + (reloads + 1) + '/' + READY_MAX_RELOADS + '): ' + pageId);
+                        frame.style.visibility = 'hidden';
+                        frame.style.clipPath = '';
+                        frame.src = state.pages[pageId].url;
+                        armReadyWatchdog(pageId, reloads + 1);
+                    }, READY_TIMEOUT_MS * (reloads + 1));
+                    pendingReady.set(pageId, timer);
+                };
+
+                // 状态型广播的"最后值"缓存（画质档这类幂等的当前态）：每个之后 ready 的 iframe 都会被补发一遍，
+                // 且面板重开 = 新 iframe + 新 PAGE_READY 也会补发，条目从不失效。一次性事件（收一次就该消费掉的提示）
+                // 不要进这里 —— 走 C# WebUILayer.RouteToPageOrQueue（ROUTE_MESSAGE 8 + 页队列）。2026-09-08 A/D 切页签提示重弹实证
+                const broadcastCache = new Map();
+
+                const PASSTHROUGH_FALLBACK_IDS = new Set([
+                    'SpeedUp', 'TrapFloatPopup', 'GeneratorFloatPopup', 'FuelGeneratorFloatPopup'
+                ]);
+                const resolvePassThrough = (pageId, passThrough) =>
+                    passThrough === undefined ? PASSTHROUGH_FALLBACK_IDS.has(pageId) : !!passThrough;
+
+                const loadPage = (pageId, url, zIndex, passThrough) => {
+                    if (!state.pages[pageId]) {
+                        state.pages[pageId] = {
+                            url: url,
+                            zIndex: zIndex || 1,
+                            visible: true,
+                            passThrough: resolvePassThrough(pageId, passThrough)
+                        };
+                    } else {
+                        const prevUrl = state.pages[pageId].url;
+                        state.pages[pageId].url = url;
+                        state.pages[pageId].zIndex = zIndex || 1;
+                        state.pages[pageId].visible = true;
+                        state.pages[pageId].passThrough = resolvePassThrough(pageId, passThrough);
+
+                        if (prevUrl === url && readyPages.has(pageId)) {
+                            notifyPageReady(pageId);
+                        } else if (!readyPages.has(pageId) && !pendingReady.has(pageId)) {
+                            // 从未 ready 且 watchdog 不在跑（超时耗尽已 giving up，或 C# 侧常驻页重挂）
+                            // → 强制换 src 并重开一轮 watchdog 预算。不比 prevUrl：Editor 的 cache-buster
+                            // 是时间戳、每次 LOAD_PAGE 的 url 都不同，比 url 会漏掉 arm、退化成无兜底的裸 reload。
+                            const frame = document.getElementById(pageId);
+                            if (frame) {
+                                console.warn('[WebUIGuard] LOAD_PAGE for never-ready page, force reloading iframe: ' + pageId);
+                                frame.style.visibility = 'hidden';
+                                frame.style.clipPath = '';
+                                frame.src = url;
+                                armReadyWatchdog(pageId, 0);
+                            }
+                        }
+                    }
+
+                    nextTick(() => {
+                        const frame = document.getElementById(pageId);
+                        if (frame) {
+                            frame.style.zIndex = zIndex || 1;
+                            frame.style.display = 'block';
+                        }
+                    });
+                };
+
+                const hidePage = (pageId) => {
+                    if (state.pages[pageId]) {
+                        state.pages[pageId].visible = false;
+
+                        nextTick(() => {
+                            const frame = document.getElementById(pageId);
+                            if (frame) frame.style.display = 'none';
+                        });
+                    }
+                };
+
+                const showPage = (pageId) => {
+                    if (state.pages[pageId]) {
+                        state.pages[pageId].visible = true;
+
+                        nextTick(() => {
+                            const frame = document.getElementById(pageId);
+                            if (frame) frame.style.display = 'block';
+                        });
+                    }
+                };
+
+                const removePage = (pageId) => {
+                    disarmReadyWatchdog(pageId);
+                    readyPages.delete(pageId);
+                    if (state.pages[pageId]) {
+                        delete state.pages[pageId];
+
+                        nextTick(() => {
+                            const frame = document.getElementById(pageId);
+                            if (frame) frame.remove();
+                        });
+                    }
+                };
+
+                const notifyPageReady = (pageId) => {
+                    disarmReadyWatchdog(pageId);
+                    readyPages.add(pageId);
+
+                    const frame = document.getElementById(pageId);
+
+                    // 页面自报就绪 = 内容已 mount，这一刻才让它可见（见 .page-frame 的 visibility 注释）。
+                    // 迟到的 ready（reload 后才发出）同样在此转可见，不会漏显示。
+                    if (frame) frame.style.visibility = 'visible';
+
+                    if (state.pages[pageId]) {
+                    } else {
+                        console.warn('[Vue] Page not found in state:', pageId);
+                    }
+
+                    if (window.vuplex) {
+                        const msg = buildProtocol(2, pageId, '', '{}');
+                        window.vuplex.postMessage(msg);
+                    } else {
+                        console.error('[Vue] vuplex not available when notifying page ready');
+                    }
+
+                    if (broadcastCache.size > 0) {
+                        if (frame && frame.contentWindow) {
+                            for (const [type, data] of broadcastCache) {
+                                frame.contentWindow.postMessage({ type: type, data: data }, '*');
+                            }
+                        }
+                    }
+                };
+
+                // 页面重试耗尽后通知 C#（协议 11 = MSG_PAGE_FAILED），由 C# 走业务关闭收口。
+                // 与 notifyPageReady 的 vuplex 分支同构：没有 vuplex 通道时无处可报，只留日志。
+                const notifyPageFailed = (pageId) => {
+                    if (window.vuplex) {
+                        window.vuplex.postMessage(buildProtocol(11, pageId, '', '{}'));
+                    } else {
+                        console.error('[Vue] vuplex not available when notifying page failed');
+                    }
+                };
+
+                const parseProtocol = (msg) => {
+                    const parts = msg.split('\x1E', 4);
+                    if (parts.length < 4) {
+                        throw new Error('Invalid protocol format');
+                    }
+                    return {
+                        typeId: parseInt(parts[0]),
+                        param1: parts[1],
+                        param2: parts[2],
+                        jsonData: parts[3]
+                    };
+                };
+
+                const buildProtocol = (typeId, param1 = '', param2 = '', jsonData = '{}') => {
+                    return `${typeId}\x1E${param1}\x1E${param2}\x1E${jsonData}`;
+                };
+
+                const handleUnityMessage = (event) => {
+                    try {
+                        const protocol = parseProtocol(event.data);
+
+                        switch (protocol.typeId) {
+                            case 4: {
+                                const data = JSON.parse(protocol.jsonData);
+                                loadPage(data.pageId, data.url, data.zIndex, data.passThrough);
+                                break;
+                            }
+                            case 5: {
+                                hidePage(protocol.param1);
+                                break;
+                            }
+                            case 6: {
+                                showPage(protocol.param1);
+                                break;
+                            }
+                            case 7: {
+                                removePage(protocol.param1);
+                                break;
+                            }
+                            case 8: {
+                                const frame = document.getElementById(protocol.param1);
+                                if (frame && frame.contentWindow) {
+                                    frame.contentWindow.postMessage({
+                                        type: protocol.param2,
+                                        data: protocol.jsonData
+                                    }, '*');
+                                }
+                                break;
+                            }
+                            case 13: {
+                                // 单页面淡入淡出（镜头左右偏转时收放主界面 HUD，2026-09-08）。
+                                // 直接改 iframe 元素的 style，不进 state.pages 响应式 ——
+                                // 这是纯视觉叠加，出问题上限是「没淡」，不能连累任何面板的加载与显隐。
+                                // 用 opacity 而不是 visibility/display：后两者被 .page-frame 的 ready 门控
+                                // 与 hidePage/showPage 占着，抢同一个属性会互相顶掉。
+                                const af = document.getElementById(protocol.param1);
+                                if (af) {
+                                    let a = 1, ms = 0;
+                                    try { const d = JSON.parse(protocol.jsonData); a = d.a; ms = d.ms; } catch (e) {}
+                                    // transition 每次都重设：时长是 Unity 按「剩余角度」算出来的，逐次不同
+                                    af.style.transition = ms > 0 ? ('opacity ' + ms + 'ms ease-in-out') : 'none';
+                                    af.style.opacity = a;
+                                    // 淡到全透明时顺手断掉命中测试，免得点到看不见的 HUD；
+                                    // 注意只动 pointerEvents，不碰 visibility/display（那是 ready 门控的地盘）
+                                    af.style.pointerEvents = (a <= 0.01) ? 'none' : '';
+                                }
+                                break;
+                            }
+                            case 12: {
+                                const markEl = document.getElementById('cheat-mark');
+                                if (markEl) markEl.classList.toggle('on', protocol.param1 === '1');
+                                break;
+                            }
+                            case 10: {
+                                broadcastCache.set(protocol.param2, protocol.jsonData);
+                                const container = document.getElementById('iframe-container');
+                                for (const frame of Array.from(container.children)) {
+                                    if (frame.contentWindow) {
+                                        frame.contentWindow.postMessage({
+                                            type: protocol.param2,
+                                            data: protocol.jsonData
+                                        }, '*');
+                                    }
+                                }
+                                break;
+                            }
+                            default:
+                                console.warn('[Vue] Unknown message type:', protocol.typeId);
+                        }
+                    } catch (e) {
+                        console.error('[Vue] Message parsing failed:', e);
+                    }
+                };
+
+                const initVuplexListener = () => {
+                    if (window.vuplex) {
+                        window.vuplex.addEventListener('message', handleUnityMessage);
+
+                        const msg = buildProtocol(1, '', '', '{}');
+                        window.vuplex.postMessage(msg);
+                    } else {
+                        window.addEventListener('vuplexready', () => {
+                            window.vuplex.addEventListener('message', handleUnityMessage);
+
+                            const msg = buildProtocol(1, '', '', '{}');
+                            window.vuplex.postMessage(msg);
+                        });
+                    }
+                };
+
+                const resolveSourceId = (event, data) => {
+                    const claimed = (data && (data.sourcePageId || (data.data && data.data.pageId))) || '';
+                    if (claimed && state.pages[claimed]) return claimed;
+                    try {
+                        const frame = event.source && event.source.frameElement;
+                        if (frame && frame.id) return frame.id;
+                    } catch (e) {
+                    }
+                    return claimed;
+                };
+
+                window.addEventListener('message', (event) => {
+                    const data = event.data;
+                    if (!data || typeof data.type !== 'string') return;
+
+                        if (data.type === '__CLICK_PASSTHROUGH__') {
+                            try {
+                                const container = document.getElementById('iframe-container');
+                                const sourcePageId = data.sourcePageId;
+                                let sourceFrame = sourcePageId ? document.getElementById(sourcePageId) : null;
+                                if (!sourceFrame) {
+                                    try {
+                                        sourceFrame = (event.source && event.source.frameElement) || null;
+                                    } catch (e) {
+                                    }
+                                }
+                                if (!sourceFrame) { console.warn('[bug][passthrough] Root: sourceFrame not found, skipping'); return; }
+                                const sourceZ = parseInt(sourceFrame.style.zIndex) || 0;
+                                const lowerFrames = Array.from(container.children)
+                                    .filter(f => f !== sourceFrame && f.id !== sourcePageId && f.style.display !== 'none')
+                                    .filter(f => (parseInt(f.style.zIndex) || 0) < sourceZ)
+                                    .sort((a, b) => (parseInt(b.style.zIndex) || 0) - (parseInt(a.style.zIndex) || 0));
+                                console.log('[bug][passthrough] Root received from', sourcePageId || (sourceFrame && sourceFrame.id), 'z='+sourceZ, 'forwarding to', lowerFrames.map(f=>f.id+'(z='+f.style.zIndex+')'));
+                                for (const frame of lowerFrames) {
+                                    if (frame.contentWindow) {
+                                        frame.contentWindow.postMessage({
+                                            type: '__CLICK_PASSTHROUGH__',
+                                            sourcePageId: sourcePageId,
+                                            clientX: data.clientX,
+                                            clientY: data.clientY
+                                        }, '*');
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('[bug][passthrough] Root error:', e);
+                            }
+                            return;
+                        }
+
+                    if (data.type === '__PAGE_READY__' || data.type === 'PAGE_READY') {
+                        const readyId = resolveSourceId(event, data);
+                        if (readyId) {
+                            notifyPageReady(readyId);
+                        } else {
+                            console.error('[WebUIGuard] PAGE_READY without resolvable pageId, dropped');
+                        }
+                        return;
+                    }
+
+                    if (data.type === '__SYNC_RECTS__' || data.type === 'SYNC_INTERACTIVE_RECTS') {
+                        const rectsId = resolveSourceId(event, data);
+                        const rects = data.rects || (data.data && data.data.rects) || [];
+                        const clip = data.clip || (data.data && data.data.clip) || null;
+                        if (rectsId) syncInteractiveRects(rectsId, rects, clip);
+                        return;
+                    }
+
+                    if (data.data === undefined) return;
+                    const sourceId = resolveSourceId(event, data);
+                    if (!sourceId) return;
+                    const msgType = data.type;
+                    const jsonData = JSON.stringify(data.data);
+                    const msg = buildProtocol(3, sourceId, msgType, jsonData);
+                    if (window.vuplex) {
+                        window.vuplex.postMessage(msg);
+                    }
+                });
+
+                initVuplexListener();
+
+                // DOM 层命中范围裁切。Unity 的 Calculate 只决定点击进不进 WebView; 进来之后 DOM 命中测试按 iframe
+                // 叠放顺序走, 全屏 iframe(z 高)会截住本该给下层 iframe 的点击——页面内 CSS 管不到 iframe 元素本身。
+                // clip-path 同时裁渲染与命中测试(CSS Masking: 裁掉区域不派发 pointer 事件), 把 iframe 裁到交互矩形
+                // 包围盒外扩 pad px 后, 矩形外的点击在 Root 文档里直接落到下一层 iframe, 原生事件、hover/drag 都通。
+                // 开关由页面自己决定(webui-core.js clickThrough.setFrameClip): 只有可见内容全在交互元素内的浮层可开。
+                // 用 px 不用 %/calc: 免去 inset() 内 math function 的兼容疑虑; 视口变化时子页 resize 会重新同步。
+                const applyFrameClip = (frame, rects, clip) => {
+                    if (!clip) {
+                        if (frame.style.clipPath) frame.style.clipPath = '';
+                        return;
+                    }
+                    // 开着裁切但矩形为空 = 页面 stop() 时的清空: 保留末次裁切, 淡出动画照常显示、矩形外继续穿透
+                    if (!rects || rects.length === 0) return;
+                    let l = 1, t = 1, r = 0, b = 0;
+                    for (const rc of rects) {
+                        if (rc.x < l) l = rc.x;
+                        if (rc.y < t) t = rc.y;
+                        if (rc.x + rc.w > r) r = rc.x + rc.w;
+                        if (rc.y + rc.h > b) b = rc.y + rc.h;
+                    }
+                    if (r <= l || b <= t) return;
+                    const pad = typeof clip.pad === 'number' ? clip.pad : 24;
+                    const W = frame.clientWidth || window.innerWidth;
+                    const H = frame.clientHeight || window.innerHeight;
+                    const px = (v) => Math.max(0, Math.round(v)) + 'px';
+                    // inset(上 右 下 左): 右/下是从对边向内量的距离
+                    frame.style.clipPath = 'inset(' + px(t * H - pad) + ' ' + px((1 - r) * W - pad) + ' '
+                        + px((1 - b) * H - pad) + ' ' + px(l * W - pad) + ')';
+                };
+
+                const syncInteractiveRects = (pageId, rects, clip) => {
+                    const frame = document.getElementById(pageId);
+                    if (frame) applyFrameClip(frame, rects, clip || null);
+                    if (window.vuplex) {
+                        const msg = buildProtocol(9, pageId, '', JSON.stringify({ rects: rects }));
+                        window.vuplex.postMessage(msg);
+                    }
+                };
+
+                window.notifyPageReady = notifyPageReady;
+                window.syncInteractiveRects = syncInteractiveRects;
+
+                watch(() => state.pages, (newPages) => {
+
+                    nextTick(() => {
+                        Object.keys(newPages).forEach(pageId => {
+                            let frame = document.getElementById(pageId);
+                            const pageData = newPages[pageId];
+                            const isNewFrame = !frame;
+
+                            if (isNewFrame) {
+                                frame = document.createElement('iframe');
+                                frame.id = pageId;
+                                frame.className = 'page-frame';
+                                document.getElementById('iframe-container').appendChild(frame);
+                                frame.src = pageData.url;
+                                armReadyWatchdog(pageId, 0);
+                            } else {
+                                const urlPath = pageData.url.split('?')[0];
+                                const newTicks = pageData.url.split('?')[1] || '';
+                                const oldTicks = frame.src.split('?')[1] || '';
+                                if (!frame.src.includes(urlPath) || newTicks !== oldTicks) {
+                                    readyPages.delete(pageId);
+                                    // 换 URL = 整页重来，先收回可见性，等新页面自报 ready 再显示
+                                    frame.style.visibility = 'hidden';
+                                    frame.style.clipPath = ''; // 整页重来, 旧实例的命中裁切一并清掉
+                                    frame.src = pageData.url;
+                                    armReadyWatchdog(pageId, 0);
+                                }
+                            }
+                            frame.style.zIndex = pageData.zIndex;
+                            frame.style.display = pageData.visible ? 'block' : 'none';
+                            frame.style.pointerEvents = pageData.passThrough ? 'none' : 'auto';
+                        });
+
+                        const container = document.getElementById('iframe-container');
+                        Array.from(container.children).forEach(frame => {
+                            if (!newPages[frame.id]) {
+                                frame.remove();
+                            }
+                        });
+                    });
+                }, { deep: true });
+
+                return { state };
+            }
+        });
+
+        app.mount('#app');
+        console.log('[Vue] Root Orchestrator initialized with Vue 3');
+    </script>
+</body>
+</html>
