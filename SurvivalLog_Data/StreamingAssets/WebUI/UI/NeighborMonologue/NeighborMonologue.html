@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>邻居独白气泡</title>
+
+    <script src="../../vue.runtime.global.prod.js"></script>
+    <script src="../../es-translation.js"></script>
+<script>
+/* === [precompiled v1] === */
+(function(){var __wgArmed__=false;var __wgGaveUp__=false;var __wgReload__=function(missing){if(__wgArmed__||__wgGaveUp__)return;var m=/(?:^|;)wgr=(\d+)/.exec(window.name||"");var n=m?parseInt(m[1],10):0;if(n>=2){__wgGaveUp__=true;console.error("[WebUIGuard] "+missing+" still missing after "+n+" reloads, giving up: "+location.pathname);return;}__wgArmed__=true;window.name=(window.name||"").replace(/(?:^|;)wgr=\d+/,"")+";wgr="+(n+1);console.warn("[WebUIGuard] "+missing+" missing, reloading page ("+(n+1)+"/2): "+location.pathname);setTimeout(function(){location.reload();},300);};window.addEventListener("error",function(e){var msg=(e&&e.message)||"";var isCore=msg.indexOf("createWebUICore is not defined")>=0;if(!isCore&&msg.indexOf("Vue is not defined")<0)return;__wgReload__(isCore?"webui-core.js":"vue.runtime.global.prod.js");if(!__wgGaveUp__)e.preventDefault();});if(typeof Vue==="undefined"){__wgReload__("vue.runtime.global.prod.js");return;}document.addEventListener("DOMContentLoaded",function(){if(document.querySelector("script[src*=webui-core]")&&typeof window.createWebUICore==="undefined"){__wgReload__("webui-core.js");return;}if(!__wgArmed__&&window.name)window.name=window.name.replace(/(?:^|;)wgr=\d+/,"");});var __renderFactory__=function(Vue){const { renderList: _renderList, Fragment: _Fragment, openBlock: _openBlock, createElementBlock: _createElementBlock, withModifiers: _withModifiers, createElementVNode: _createElementVNode, toDisplayString: _toDisplayString, createCommentVNode: _createCommentVNode, normalizeClass: _normalizeClass, normalizeStyle: _normalizeStyle } = Vue
+
+const _hoisted_1 = ["onClick"]
+const _hoisted_2 = ["onClick"]
+const _hoisted_3 = {
+  key: 0,
+  class: "bubble-expand-cue"
+}
+
+return function render(_ctx, _cache) {
+  return (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.renderList, (b) => {
+    return (_openBlock(), _createElementBlock("div", {
+      key: b.key,
+      class: _normalizeClass(["bubble unity-interactive", ['tag-' + (b.tag || 'calm'), b.phase, { expanded: b.expanded, 'is-truncated': b.isTruncated }]]),
+      style: _normalizeStyle({ left: b.anchorX + '%', top: b.anchorY + '%' }),
+      onClick: _withModifiers($event => (_ctx.onBubbleClick(b)), ["stop"])
+    }, [
+      _createElementVNode("button", {
+        class: "bubble-close unity-interactive",
+        onClick: _withModifiers($event => (_ctx.onCloseClick(b)), ["stop"]),
+        "aria-label": "关闭"
+      }, "✕", 8 /* PROPS */, _hoisted_2),
+      _createElementVNode("div", {
+        class: "bubble-text",
+        ref_for: true,
+        ref: el => _ctx.onBubbleTextMount(b, el)
+      }, _toDisplayString(b.text), 513 /* TEXT, NEED_PATCH */),
+      (b.isTruncated)
+        ? (_openBlock(), _createElementBlock("span", _hoisted_3, "▼"))
+        : _createCommentVNode("v-if", true)
+    ], 14 /* CLASS, STYLE, PROPS */, _hoisted_1))
+  }), 128 /* KEYED_FRAGMENT */))
+}};var __renderCache__=null;var __origCreateApp__=Vue.createApp;Vue.createApp=function(opts){if(!__renderCache__)__renderCache__=__renderFactory__(Vue);if(opts&&typeof opts==="object"&&!opts.render&&!opts.template){opts=Object.assign({},opts,{render:__renderCache__});}var app=__origCreateApp__.call(this,opts);if(!app.config.errorHandler){app.config.errorHandler=function(err){var msg=(err&&err.message)||String(err||"");if(msg.indexOf("createWebUICore is not defined")>=0){__wgReload__("webui-core.js");if(__wgGaveUp__)console.error(err);return;}console.error(err);};}return app;};})();
+/* === [/precompiled v1] === */
+</script>
+
+    <script>
+(function(global) {
+    'use strict';
+
+    
+    function getTranslationDict() {
+        try {
+            if (global.__ES_TRANSLATIONS__) return global.__ES_TRANSLATIONS__;
+            if (global.parent && global.parent.__ES_TRANSLATIONS__) return global.parent.__ES_TRANSLATIONS__;
+            if (global.top && global.top.__ES_TRANSLATIONS__) return global.top.__ES_TRANSLATIONS__;
+        } catch (e) {}
+        return null;
+    }
+
+    function translateDeep(val) {
+        if (!val) return val;
+        const dict = getTranslationDict();
+        if (!dict) return val;
+
+        if (typeof val === 'string') {
+            if (dict[val]) return dict[val];
+            const trimmed = val.trim();
+            if (trimmed && dict[trimmed]) {
+                return val.replace(trimmed, dict[trimmed]);
+            }
+            return val;
+        }
+
+        if (Array.isArray(val)) {
+            for (let i = 0; i < val.length; i++) {
+                val[i] = translateDeep(val[i]);
+            }
+            return val;
+        }
+
+        if (typeof val === 'object') {
+            for (const k of Object.keys(val)) {
+                if (k === 'id' || k === 'type' || k === 'action' || k === 'sourcePageId' || k === 'pageId') continue;
+                val[k] = translateDeep(val[k]);
+            }
+            return val;
+        }
+
+        return val;
+    }
+
+    function createWebUICore(pageId) {
+        const messageHandlers = {};
+
+        const sendMessage = (action, data = {}) => {
+            const message = { type: action, data: data, sourcePageId: pageId };
+            if (window.parent) window.parent.postMessage(message, '*');
+        };
+        const UnitySendEvent = (action, extraData = {}) => sendMessage(action, extraData);
+        const registerHandlers = (handlers) => Object.assign(messageHandlers, handlers);
+
+        const initMessageListener = () => {
+            window.addEventListener('message', (event) => {
+                const message = event.data;
+                if (message && message.type === '__CLICK_PASSTHROUGH__') {
+                    if (message.sourcePageId !== pageId && inspector.isActive()) {
+                        inspector.handlePoint(message.clientX, message.clientY, true);
+                    }
+                    return;
+                }
+                if (message && message.type === '__INSPECT_MODE__') {
+                    const d = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+                    if (d && d.on) { inspector.start(); } else { inspector.stop(); }
+                    return;
+                }
+                if (message && message.type === '__QUALITY_TIER__') {
+                    const d = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+                    const root = document.documentElement;
+                    root.classList.remove('quality-low', 'quality-medium');
+                    if (d && d.tier) { root.classList.add('quality-' + d.tier); }
+                    return;
+                }
+                const handler = messageHandlers[message.type];
+                if (handler) {
+                    const data = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+                    data = translateDeep(data);
+                    handler(data);
+                }
+            });
+        };
+
+        const notifyReady = () => {
+            setTimeout(() => {
+                try {
+                    if (window.parent && window.parent.notifyPageReady) {
+                        window.parent.notifyPageReady(pageId);
+                        return;
+                    }
+                } catch (e) {
+                }
+                if (window.parent) {
+                    window.parent.postMessage({ type: '__PAGE_READY__', sourcePageId: pageId }, '*');
+                }
+            }, 100);
+        };
+
+        initMessageListener();
+
+        // clip: null = 不裁; { pad } = 让 Root 把本页 iframe 的 DOM 命中范围裁到 rects 包围盒外扩 pad px(见 Root.html applyFrameClip)
+        const syncInteractiveRects = (rects, clip = null) => {
+            try {
+                if (window.parent && window.parent.syncInteractiveRects) {
+                    window.parent.syncInteractiveRects(pageId, rects, clip);
+                    return;
+                }
+            } catch (e) {
+            }
+            if (window.parent) {
+                window.parent.postMessage({ type: '__SYNC_RECTS__', sourcePageId: pageId, rects: rects, clip: clip }, '*');
+            }
+        };
+
+        const clickThrough = (function() {
+            const config = {
+                debounceMs: 100,
+                selector: '.unity-interactive, button, input, select, a, [data-interactive]'
+            };
+            let syncTimer = null;
+            let observer = null;
+            let isRunning = false;
+            let frameClip = null; // { pad } = 已请求 Root 裁切本页 iframe 命中范围(见 setFrameClip)
+
+            function collectRects() {
+                const rects = [];
+                const elements = document.querySelectorAll(config.selector);
+                elements.forEach(el => {
+                    const style = getComputedStyle(el);
+                    if (style.pointerEvents === 'none' || style.visibility === 'hidden' || style.display === 'none' || el.disabled) return;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width <= 0 || rect.height <= 0) return;
+                    if (rect.right < 0 || rect.bottom < 0) return;
+                    if (rect.left > window.innerWidth || rect.top > window.innerHeight) return;
+                    rects.push({
+                        x: Math.max(0, rect.left / window.innerWidth),
+                        y: Math.max(0, rect.top / window.innerHeight),
+                        w: Math.min(rect.width / window.innerWidth, 1),
+                        h: Math.min(rect.height / window.innerHeight, 1)
+                    });
+                });
+                return rects;
+            }
+
+            function debounceSyncRects() {
+                if (!isRunning) return;
+                if (syncTimer) return;
+                syncTimer = setTimeout(() => {
+                    syncTimer = null;
+                    syncInteractiveRects(collectRects(), frameClip);
+                }, config.debounceMs);
+            }
+            function syncNow() {
+                if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+                syncInteractiveRects(collectRects(), frameClip);
+            }
+            function syncNowAfterReflow() {
+                if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+                requestAnimationFrame(() => syncInteractiveRects(collectRects(), frameClip));
+            }
+            function start(options = {}) {
+                if (isRunning) return;
+                isRunning = true;
+                if (options.debounceMs) config.debounceMs = options.debounceMs;
+                if (options.selector) config.selector = options.selector;
+                syncNow();
+                observer = new MutationObserver((mutations) => {
+                    for (let i = 0; i < mutations.length; i++) {
+                        const t = mutations[i].target;
+                        if (t && t.nodeType === 1 && t.closest && t.closest('[data-no-sync]')) continue;
+                        debounceSyncRects();
+                        return;
+                    }
+                });
+                observer.observe(document.body, {
+                    childList: true, subtree: true, attributes: true,
+                    attributeFilter: ['style', 'class', 'disabled', 'hidden']
+                });
+                window.addEventListener('resize', debounceSyncRects);
+                window.addEventListener('scroll', debounceSyncRects);
+            }
+            function stop() {
+                if (!isRunning) return;
+                isRunning = false;
+                if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+                if (observer) { observer.disconnect(); observer = null; }
+                window.removeEventListener('resize', debounceSyncRects);
+                window.removeEventListener('scroll', debounceSyncRects);
+                syncInteractiveRects([], frameClip);
+            }
+            /**
+             * 让 Root 把本页 iframe 的 DOM 命中范围裁到交互矩形包围盒(外扩 padPx, 默认 24)。
+             * 解决的是 Unity 层 Calculate 已放行、但全屏 iframe 仍在 DOM 层截住下层 iframe 点击的问题:
+             * 页面内 CSS 管不到 iframe 元素本身, 只有 Root 改 iframe 的 clip-path 才能让矩形外的点击真正落到下层。
+             * clip-path 同时裁渲染: 只对可见内容全在交互元素内的浮层开启; Block 全屏档必须传 false。
+             */
+            function setFrameClip(enabled, padPx) {
+                const next = enabled ? { pad: typeof padPx === 'number' ? padPx : 24 } : null;
+                if ((next ? next.pad : -1) === (frameClip ? frameClip.pad : -1)) return;
+                frameClip = next;
+                syncInteractiveRects(isRunning ? collectRects() : [], frameClip);
+            }
+
+            return { start, stop, syncNow, syncNowAfterReflow, collectRects, setFrameClip };
+        })();
+
+        const inspector = (function() {
+            let active = false;
+            let box = null;
+            let label = null;
+            let peStyle = null;
+
+            function injectPeFix() {
+                if (peStyle) return;
+                peStyle = document.createElement('style');
+                peStyle.setAttribute('data-inspect-pe-fix', '');
+                peStyle.textContent = '* { pointer-events: auto !important; }\n'
+                    + '[data-no-sync], [data-no-sync] * { pointer-events: none !important; }';
+                document.head.appendChild(peStyle);
+            }
+
+            function removePeFix() {
+                if (!peStyle) return;
+                peStyle.remove();
+                peStyle = null;
+                clickThrough.syncNowAfterReflow();
+            }
+
+            function ensureOverlay() {
+                if (box) return;
+                box = document.createElement('div');
+                box.setAttribute('data-no-sync', '');
+                box.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;display:none;'
+                    + 'border:2px solid #FFC107;background:rgba(255,193,7,0.12);box-sizing:border-box;border-radius:2px;';
+                label = document.createElement('div');
+                label.setAttribute('data-no-sync', '');
+                label.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;display:none;'
+                    + 'background:rgba(20,16,8,0.92);color:#FFE082;font:12px/1.6 Consolas,monospace;'
+                    + 'padding:2px 8px;border:1px solid rgba(255,193,7,0.5);border-radius:3px;'
+                    + 'max-width:60vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                document.documentElement.appendChild(box);
+                document.documentElement.appendChild(label);
+            }
+
+            function describeEl(el) {
+                if (!el || !el.tagName) return '';
+                let s = el.tagName.toLowerCase();
+                if (el.id) s += '#' + el.id;
+                if (el.classList && el.classList.length) s += '.' + Array.from(el.classList).slice(0, 3).join('.');
+                return s;
+            }
+
+            function domPath(el, maxDepth) {
+                const parts = [];
+                let cur = el, d = 0;
+                while (cur && cur !== document.body && cur.nodeType === 1 && d < (maxDepth || 8)) {
+                    parts.unshift(describeEl(cur));
+                    cur = cur.parentElement; d++;
+                }
+                return parts.join(' > ');
+            }
+
+            function onMove(e) {
+                const el = document.elementFromPoint(e.clientX, e.clientY);
+                if (!el || el === document.body || el === document.documentElement) {
+                    box.style.display = 'none'; label.style.display = 'none';
+                    return;
+                }
+                const r = el.getBoundingClientRect();
+                box.style.display = 'block';
+                box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+                box.style.width = r.width + 'px'; box.style.height = r.height + 'px';
+                label.style.display = 'block';
+                label.textContent = pageId + ' ▸ ' + describeEl(el);
+                label.style.left = Math.min(e.clientX + 14, window.innerWidth - 280) + 'px';
+                label.style.top = Math.min(e.clientY + 18, window.innerHeight - 30) + 'px';
+            }
+
+            function collect(clientX, clientY, viaPassthrough) {
+                const el = document.elementFromPoint(clientX, clientY);
+                const meaningful = !!(el && el !== document.body && el !== document.documentElement);
+                const payload = {
+                    page: pageId,
+                    file: location.pathname.split('/').pop() || '',
+                    clientX: clientX,
+                    clientY: clientY,
+                    nx: clientX / window.innerWidth,
+                    ny: clientY / window.innerHeight,
+                    viaPassthrough: !!viaPassthrough,
+                    meaningful: meaningful
+                };
+                if (meaningful) {
+                    const r = el.getBoundingClientRect();
+                    const i18nEl = el.closest('[data-i18n]');
+                    payload.el = {
+                        desc: describeEl(el),
+                        domPath: domPath(el),
+                        text: (el.innerText || el.textContent || '').trim().slice(0, 120),
+                        i18n: i18nEl ? i18nEl.getAttribute('data-i18n') : null,
+                        dataset: Object.assign({}, el.dataset),
+                        rectPx: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) },
+                        fullViewport: r.width >= window.innerWidth * 0.95 && r.height >= window.innerHeight * 0.95
+                    };
+                }
+                sendMessage('__INSPECT_PICK__', payload);
+            }
+
+            function handlePoint(clientX, clientY, viaPassthrough) {
+                if (!active) return;
+                collect(clientX, clientY, viaPassthrough);
+                if (!viaPassthrough && window.parent) {
+                    window.parent.postMessage({
+                        type: '__CLICK_PASSTHROUGH__',
+                        sourcePageId: pageId,
+                        clientX: clientX,
+                        clientY: clientY
+                    }, '*');
+                }
+            }
+
+            function onClick(e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                handlePoint(e.clientX, e.clientY, false);
+            }
+
+            function swallow(e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+
+            function start() {
+                if (active) return;
+                active = true;
+                ensureOverlay();
+                injectPeFix();
+                document.addEventListener('mousemove', onMove, true);
+                document.addEventListener('click', onClick, true);
+                document.addEventListener('mousedown', swallow, true);
+                document.addEventListener('mouseup', swallow, true);
+                document.addEventListener('pointerdown', swallow, true);
+                document.addEventListener('pointerup', swallow, true);
+                console.log('[bug][指认] ' + pageId + ' 检查模式 ON');
+            }
+
+            function stop() {
+                if (!active) return;
+                active = false;
+                removePeFix();
+                document.removeEventListener('mousemove', onMove, true);
+                document.removeEventListener('click', onClick, true);
+                document.removeEventListener('mousedown', swallow, true);
+                document.removeEventListener('mouseup', swallow, true);
+                document.removeEventListener('pointerdown', swallow, true);
+                document.removeEventListener('pointerup', swallow, true);
+                if (box) { box.style.display = 'none'; label.style.display = 'none'; }
+                console.log('[bug][指认] ' + pageId + ' 检查模式 OFF');
+            }
+
+            return { start: start, stop: stop, handlePoint: handlePoint, isActive: function() { return active; } };
+        })();
+
+
+        return {
+            sendMessage, UnitySendEvent, registerHandlers, notifyReady, pageId,
+            syncInteractiveRects, clickThrough
+        };
+    }
+
+    global.createWebUICore = createWebUICore;
+})(window);
+    </script>
+    <style>
+        :root {
+            --bubble-bg-top:    rgba(28, 28, 32, 0.88);
+            --bubble-bg-bottom: rgba(18, 18, 22, 0.92);
+            --bubble-border-default: rgba(255, 193, 7, 0.35);
+            --bubble-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(255, 193, 7, 0.06);
+            --text-main: #eee;
+            --text-dim: #999;
+            --accent: #FFC107;
+            --accent-glow: rgba(255, 193, 7, 0.28);
+            --font-main: "Microsoft YaHei UI", "Microsoft YaHei", "微软雅黑", sans-serif;
+
+            --tag-sick:    #FFAB91;
+            --tag-despair: rgba(255, 255, 255, 0.18);
+            --tag-calm:    rgba(255, 193, 7, 0.35);
+            --tag-happy:   rgba(255, 193, 7, 0.65);
+            --tag-distant: rgba(255, 193, 7, 0.45);
+            --tag-close:   rgba(255, 193, 7, 0.55);
+        }
+
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: transparent;
+            font-family: var(--font-main);
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        .bubble {
+            position: fixed;
+            left: 0; top: 0;
+            transform: translate(-50%, -100%);
+            max-width: 320px;
+            min-width: 120px;
+            padding: 12px 16px;
+            background: linear-gradient(168deg, var(--bubble-bg-top) 0%, var(--bubble-bg-bottom) 100%);
+            border: 1px solid var(--bubble-border-default);
+            border-radius: 12px;
+            box-shadow: var(--bubble-shadow);
+            font-size: 15px;
+            line-height: 1.55;
+            color: var(--text-main);
+            opacity: 0;
+            margin-top: -14px;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                        border-color 240ms ease,
+                        box-shadow 240ms ease,
+                        max-height 320ms cubic-bezier(0.22, 1, 0.36, 1);
+            max-height: 96px;
+        }
+        .bubble.entering {
+            opacity: 0;
+            transform: translate(-50%, calc(-100% + 8px));
+        }
+        .bubble.visible {
+            opacity: 1;
+            transform: translate(-50%, -100%);
+        }
+        .bubble.leaving {
+            opacity: 0;
+            transform: translate(-50%, calc(-100% - 4px));
+            transition: opacity 240ms ease-in, transform 240ms ease-in;
+        }
+
+        .bubble.expanded {
+            max-height: 280px;
+        }
+
+        .bubble-text {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .bubble.expanded .bubble-text {
+            -webkit-line-clamp: unset;
+            overflow: visible;
+        }
+
+        .bubble::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: -7px;
+            width: 12px; height: 12px;
+            background: linear-gradient(168deg, var(--bubble-bg-top) 0%, var(--bubble-bg-bottom) 100%);
+            border-right: 1px solid var(--bubble-border-default);
+            border-bottom: 1px solid var(--bubble-border-default);
+            transform: translateX(-50%) rotate(45deg);
+            transition: border-color 240ms ease;
+        }
+
+        .bubble.tag-sick { border-color: var(--tag-sick); }
+        .bubble.tag-sick::before { border-right-color: var(--tag-sick); border-bottom-color: var(--tag-sick); }
+
+        .bubble.tag-despair { border-color: var(--tag-despair); }
+        .bubble.tag-despair::before { border-right-color: var(--tag-despair); border-bottom-color: var(--tag-despair); }
+        .bubble.tag-despair .bubble-text { color: rgba(238, 238, 238, 0.75); }
+
+        .bubble.tag-calm { border-color: var(--tag-calm); }
+        .bubble.tag-calm::before { border-right-color: var(--tag-calm); border-bottom-color: var(--tag-calm); }
+
+        .bubble.tag-happy {
+            border-color: var(--tag-happy);
+        }
+        .bubble.tag-happy::before { border-right-color: var(--tag-happy); border-bottom-color: var(--tag-happy); }
+        .bubble.tag-happy::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            box-shadow: 0 0 22px rgba(255, 193, 7, 0.18);
+            opacity: 0;
+            animation: bubble-happy-glow 2.6s ease-in-out infinite;
+        }
+        @keyframes bubble-happy-glow {
+            0%, 100% { opacity: 0; }
+            50%      { opacity: 1; }
+        }
+        html.quality-low .bubble.tag-happy::after { animation: none; opacity: 0.5; }
+
+        .bubble.tag-distant {
+            border-style: dashed;
+            border-color: var(--tag-distant);
+        }
+        .bubble.tag-distant::before {
+            border-right: 1px dashed var(--tag-distant);
+            border-bottom: 1px dashed var(--tag-distant);
+        }
+
+        .bubble.tag-close {
+            border-color: var(--tag-close);
+            box-shadow: var(--bubble-shadow), inset 0 0 0 3px rgba(255, 193, 7, 0.08);
+        }
+        .bubble.tag-close::before { border-right-color: var(--tag-close); border-bottom-color: var(--tag-close); }
+
+        .bubble-expand-cue {
+            position: absolute;
+            right: 8px;
+            bottom: 4px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            background: rgba(255, 193, 7, 0.12);
+            border: 1px solid rgba(255, 193, 7, 0.4);
+            border-radius: 50%;
+            font-size: 12px;
+            line-height: 1;
+            font-weight: 700;
+            pointer-events: none;
+            opacity: 0.9;
+            box-shadow: 0 0 9px rgba(255, 193, 7, 0.3);
+            animation: bubble-cue-breathe 1.4s ease-in-out infinite;
+        }
+        html.quality-low .bubble-expand-cue { animation: none; opacity: 0.85; }
+        @keyframes bubble-cue-breathe {
+            0%, 100% {
+                opacity: 0.65;
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translateY(3px) scale(1.18);
+            }
+        }
+        .bubble.expanded .bubble-expand-cue {
+            animation: none;
+            opacity: 0.7;
+            transform: rotate(180deg);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.18);
+            color: var(--text-dim);
+            box-shadow: none;
+        }
+        .bubble:hover .bubble-expand-cue {
+            opacity: 1;
+        }
+        .bubble.is-truncated {
+            padding-bottom: 32px;
+        }
+
+        .bubble:hover {
+            border-color: var(--accent);
+        }
+
+        .bubble-close {
+            position: absolute;
+            top: 6px; right: 8px;
+            width: 20px; height: 20px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+            border-radius: 4px;
+            transition: color 160ms ease, background 160ms ease;
+        }
+        .bubble-close:hover {
+            color: var(--accent);
+            background: rgba(255, 193, 7, 0.08);
+        }
+        .bubble.expanded .bubble-close {
+            display: flex;
+        }
+        .bubble.expanded .bubble-text {
+            padding-right: 22px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .bubble, .bubble::before {
+                transition: opacity 120ms linear;
+            }
+            .bubble.tag-happy {
+                animation: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div v-for="b in renderList" :key="b.key"
+             class="bubble unity-interactive"
+             :class="['tag-' + (b.tag || 'calm'), b.phase, { expanded: b.expanded, 'is-truncated': b.isTruncated }]"
+             :style="{ left: b.anchorX + '%', top: b.anchorY + '%' }"
+             @click.stop="onBubbleClick(b)">
+            <button class="bubble-close unity-interactive"
+                    @click.stop="onCloseClick(b)"
+                    aria-label="关闭">✕</button>
+            <div class="bubble-text" :ref="el => onBubbleTextMount(b, el)">{{ b.text }}</div>
+            <span class="bubble-expand-cue" v-if="b.isTruncated">▼</span>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount } = Vue;
+
+        createApp({
+            setup() {
+                const core = createWebUICore('NeighborMonologue');
+
+                const bubbles = reactive([]);
+                const pendingQueue = [];
+                let nextKey = 1;
+                let autoHideTimer = null;
+
+                const renderList = computed(() => bubbles);
+
+                const looksTruncated = (text) => {
+                    if (!text) return false;
+                    let w = 0;
+                    for (const ch of text) {
+                        w += ch.charCodeAt(0) > 127 ? 18 : 9;
+                    }
+                    return w > 280;
+                };
+
+                const showMonologue = (data) => {
+                    if (!data || !data.text) return;
+
+                    const hasExpanded = bubbles.some(b =>
+                        b.expanded && (b.phase === 'visible' || b.phase === 'entering')
+                    );
+                    if (hasExpanded) {
+                        pendingQueue.push(data);
+                        return;
+                    }
+
+                    bubbles.forEach(b => {
+                        if (b.phase === 'visible' || b.phase === 'entering') {
+                            b.phase = 'leaving';
+                        }
+                    });
+                    setTimeout(() => {
+                        for (let i = bubbles.length - 1; i >= 0; i--) {
+                            if (bubbles[i].phase === 'leaving') bubbles.splice(i, 1);
+                        }
+                    }, 280);
+
+                    const newBubble = reactive({
+                        key: nextKey++,
+                        text: data.text,
+                        tag: data.tag || 'calm',
+                        anchorX: typeof data.anchorX === 'number' ? data.anchorX * 100 : 50,
+                        anchorY: typeof data.anchorY === 'number' ? data.anchorY * 100 : 50,
+                        autoHideSeconds: data.autoHideSeconds || 6,
+                        monologueId: data.monologueId || ('m_' + nextKey),
+                        expanded: false,
+                        isTruncated: looksTruncated(data.text),
+                        phase: 'entering'
+                    });
+                    bubbles.push(newBubble);
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => { newBubble.phase = 'visible'; });
+                    });
+
+                    scheduleAutoHide(newBubble);
+                };
+
+                const scheduleAutoHide = (bubble) => {
+                    clearTimeout(autoHideTimer);
+                    if (bubble.expanded) return;
+                    autoHideTimer = setTimeout(() => {
+                        hideBubble(bubble);
+                    }, bubble.autoHideSeconds * 1000);
+                };
+
+                const hideBubble = (bubble) => {
+                    if (!bubble) return;
+                    bubble.phase = 'leaving';
+                    setTimeout(() => {
+                        const idx = bubbles.findIndex(b => b.key === bubble.key);
+                        if (idx >= 0) bubbles.splice(idx, 1);
+                        playNextPending();
+                    }, 280);
+                    core.UnitySendEvent('MONOLOGUE_DISMISSED', { monologueId: bubble.monologueId });
+                };
+
+                const playNextPending = () => {
+                    if (pendingQueue.length === 0) return;
+                    const next = pendingQueue.shift();
+                    showMonologue(next);
+                };
+
+                const onBubbleClick = (bubble) => {
+                    bubble.expanded = !bubble.expanded;
+                    if (bubble.expanded) {
+                        clearTimeout(autoHideTimer);
+                    } else {
+                        scheduleAutoHide(bubble);
+                    }
+                    core.clickThrough.syncNowAfterReflow();
+                };
+
+                const onCloseClick = (bubble) => {
+                    hideBubble(bubble);
+                };
+
+                const onBubbleTextMount = (bubble, el) => {
+                    if (!el) return;
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            if (bubble && el.scrollWidth !== undefined) {
+                                bubble.isTruncated = el.scrollWidth > el.clientWidth + 1;
+                            }
+                        });
+                    });
+                };
+
+                core.registerHandlers({
+                    'WebUI_NeighborMonologue_ShowMsg': (data) => showMonologue(data),
+                    'WebUI_NeighborMonologue_DismissMsg': (data) => {
+                        const target = bubbles.find(b => b.monologueId === data.monologueId);
+                        if (target) hideBubble(target);
+                    }
+                });
+
+                onMounted(() => {
+                    core.clickThrough.start();
+                    core.notifyReady();
+                });
+
+                onBeforeUnmount(() => {
+                    clearTimeout(autoHideTimer);
+                    core.clickThrough.stop();
+                });
+
+                return {
+                    renderList, onBubbleClick, onCloseClick, onBubbleTextMount
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

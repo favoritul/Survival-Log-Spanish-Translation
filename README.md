@@ -5,62 +5,43 @@
 [![BepInEx: 6.0 IL2CPP](https://img.shields.io/badge/BepInEx-6.0.0%20IL2CPP-green.svg)](https://github.com/BepInEx/BepInEx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
-Mod de traducción integral al **Español de España (Castellano)** para el videojuego **Survival Log** (PC / Steam / Unity 6 IL2CPP 64-bit).
+Mod de traducción integral y definitiva al **Español de España (Castellano)** para el videojuego **Survival Log** (PC / Steam / Unity 6 IL2CPP 64-bit).
 
-*English description available below / Descripción en inglés más abajo.*
-
----
-
-## 🇪🇸 ESPAÑOL
-
-### 🌟 Características
-- **Traducción total de la interfaz (WebUI / Vue.js):** Menús, selección de supervivientes, árbol de talentos, crafteo, inventario, tiendas, refugio, radio y bitácoras de supervivencia.
-- **Traducción de textos de Unity:** Textos de juego, carteles, diálogos y notificaciones en tiempo real con BepInEx 6 + XUnity.AutoTranslator.
-- **Más de 30.000 términos y oraciones:** Glosario contextualizado en español peninsular, respetando etiquetas de color y variables (`{0}`, `{1}`).
-- **100% Offline:** Sin dependencias externas ni llamadas de red durante la partida.
+*English description available below / Para leer la guía detallada en español, consulta [LEEME.md](LEEME.md).*
 
 ---
 
-### 📥 Instalación Rápida
-1. **Descarga el mod:** Ve a la pestaña **[Releases](../../releases)** y descarga el archivo `SurvivalLog_Traduccion_Espanol_v1.0.zip`.
-2. **Localiza la carpeta del juego:**
-   - En Steam: Clic derecho en *Survival Log* → *Administrar* → *Explorar archivos locales*.
-3. **Copia y reemplaza:**
-   - Extrae el contenido del ZIP directamente en la carpeta del juego (junto a `SurvivalLog.exe`).
-   - Confirma el reemplazo de archivos si el sistema lo solicita.
-4. **¡Listo!** Inicia el juego normalmente.
+## 🇪🇸 RESUMEN EN ESPAÑOL
 
-> [!NOTE]
-> En el **primer inicio**, el juego tardará entre 10 y 25 segundos adicionales mientras BepInEx genera automáticamente las librerías `interop` para tu versión. Los arranques posteriores iniciarán con normalidad.
+### 🌟 Aspectos Destacados
+- **Interfaz completa y HUD en español:** Mochila, inventario, capacidad de carga, atributos vitales (*Saciedad*, *Moral*, *Energía*, *Salud*), advertencias (*Infección grave*), controles y guías (*Ver obstáculos*, *Despejar obstáculos*).
+- **Traducción WebUI (Vue 3 / Chromium):** Menús, bitácoras de supervivencia, talentos, eventos, mensajes SMS y tiendas.
+- **Calidad humana y contextual:** Sin traducciones automáticas absurdas ni frases rotas de Google Translate.
+- **Plugin nativo `SurvivalLog.TraduccionES`:** Conexión directa a `ConfigManager.GetLocalTxt` y TextMeshPro con bypass integrado del aviso de verificación de archivos.
+- **Todo incluido y 100% Offline:** Descomprimir y jugar.
 
----
-
-### 🛠️ Desinstalación
-1. Elimina las carpetas `BepInEx` y `dotnet` de la carpeta del juego.
-2. Elimina `winhttp.dll`, `doorstop_config.ini` y `.doorstop_version`.
-3. En Steam, haz clic derecho en el juego → **Propiedades** → **Archivos instalados** → **Verificar la integridad de los archivos del juego**.
+### 📥 Instalación
+1. Descarga **`SurvivalLog_Traduccion_Espanol_v1.0.zip`** desde la sección de **[Releases](../../releases)**.
+2. Extrae el contenido en la carpeta de instalación de **Survival Log** (junto a `SurvivalLog.exe`).
+3. Reemplaza los archivos si el sistema te lo solicita.
+4. Inicia el juego normalmente.
 
 ---
 
-## 🇬🇧 ENGLISH
+## 🇬🇧 ENGLISH SUMMARY
 
 ### Overview
-This repository provides a complete European Spanish translation mod for **Survival Log** (Unity 6 IL2CPP 64-bit).
+This repository provides a comprehensive, high-performance Castilian Spanish translation mod for **Survival Log** (PC / Steam / Unity 6 IL2CPP 64-bit).
 
 ### Features
-- Complete WebUI (Vue.js) localization covering main menus, inventory, crafting, shops, and survival logs.
-- Dynamic in-game text localization powered by BepInEx 6 IL2CPP and XUnity.AutoTranslator.
-- Over 30,000 translated strings formatted in European Spanish.
-- Offline and lightweight.
+- **Full In-Game UI & HUD Localization:** Native translation of the backpack inventory, encumbrance, player attributes (*Satiety*, *Morale*, *Stamina*, *Life*), infection statuses, keybind hints, and objective prompts (*View Obstacles*, *Clear Obstacles*).
+- **WebUI Localization (Vue 3 / Chromium):** Complete coverage of the main menu, survivor selection, crafting panels, logs, SMS, and events.
+- **Native BepInEx Plugin (`SurvivalLog.TraduccionES.dll`):** Direct hooks into `ConfigManager.GetLocalTxt` and TextMeshPro, plus an automated startup check bypass.
+- **No Machine Translation Artifacts:** Curated gaming vocabulary tailored for European Spanish.
+- **All-in-One Package:** Includes pre-packaged BepInEx 6, .NET runtime, and translations.
 
 ### Installation
-1. Download `SurvivalLog_Traduccion_Espanol_v1.0.zip` from the **[Releases](../../releases)** page.
-2. Extract all contents directly into the game's root installation folder (where `SurvivalLog.exe` is located).
-3. Overwrite any existing files when prompted.
-4. Launch the game. (First launch will take an extra 10-25 seconds to generate IL2CPP interop assemblies).
-
----
-
-## 📜 Licencia / License
-Este proyecto se distribuye bajo la licencia [MIT](LICENSE).
-Herramientas de terceros (BepInEx, XUnity.AutoTranslator, Doorstop) pertenecen a sus respectivos autores.
+1. Download **`SurvivalLog_Traduccion_Espanol_v1.0.zip`** from the **[Releases](../../releases)** page.
+2. Extract all contents into the root folder of Survival Log (next to `SurvivalLog.exe`).
+3. Overwrite existing files when prompted.
+4. Launch the game normally.
