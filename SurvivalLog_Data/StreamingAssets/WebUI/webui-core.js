@@ -30,10 +30,18 @@
         if (!dict) return val;
 
         if (typeof val === 'string') {
+            const dayM = val.match(/^DAY\s*(\d+)$/i);
+            if (dayM) return 'DÍA ' + dayM[1];
+            const loopM = val.match(/^Loop:\s*(?:VAR\d+\s*)?(\d+)$/i);
+            if (loopM) return 'Bucle: ' + loopM[1];
+
             if (dict[val]) return dict[val];
             const trimmed = val.trim();
             if (trimmed && dict[trimmed]) {
                 return val.replace(trimmed, dict[trimmed]);
+            }
+            if (val.indexOf('VAR0') !== -1) {
+                return val.replace(/VAR0\s*/g, '');
             }
             return val;
         }
@@ -64,6 +72,16 @@
         if (node.nodeType === 3) {
             const val = node.nodeValue;
             if (!val) return;
+            const dayM = val.match(/^DAY\s*(\d+)$/i);
+            if (dayM) {
+                node.nodeValue = 'DÍA ' + dayM[1];
+                return;
+            }
+            const loopM = val.match(/^Loop:\s*(?:VAR\d+\s*)?(\d+)$/i);
+            if (loopM) {
+                node.nodeValue = 'Bucle: ' + loopM[1];
+                return;
+            }
             const trimmed = val.trim();
             if (trimmed && dict[trimmed]) {
                 node.nodeValue = val.replace(trimmed, dict[trimmed]);
